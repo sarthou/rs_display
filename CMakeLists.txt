@@ -8,6 +8,7 @@ add_compile_options(-std=c++1z -Wall)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   robosherlock_msgs
+  ontologenius
   roscpp
   std_msgs
 )

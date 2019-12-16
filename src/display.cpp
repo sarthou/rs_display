@@ -39,6 +39,7 @@ rs::Object getObject(rs::PropertyData& obj)
 
 ros::Publisher* pub;
 ros::Publisher* click_pub;
+OntologyManipulator* onto_;
 std::mutex mut_;
 std::vector<rs::Object> objects_;
 std::vector<rs::Object> objects_prev_;
@@ -107,6 +108,7 @@ void Callback(const robosherlock_msgs::RSObjectDescriptions& msg)
   for(auto& obj : objects)
   {
     obj.setId();
+    obj.upadteInOntology(onto_);
     pub->publish(obj.getMarker());
     pub->publish(obj.getMarkerName());
   }
@@ -178,6 +180,9 @@ int main(int argc, char *argv[])
   ros::init(argc, argv, "rs_display");
   ros::NodeHandle n;
 
+  OntologyManipulator onto(&n);
+  onto_ = &onto;
+
   ros::Subscriber sub = n.subscribe("RoboSherlock_gsarthou/result_advertiser", 1000, Callback);
   ros::Subscriber click_sub = n.subscribe("/clicked_point", 1000, clickCallback);
 
@@ -189,6 +194,8 @@ int main(int argc, char *argv[])
 
   ros::Publisher c_pub = n.advertise<std_msgs::String>("clicked_object", 10);
   click_pub = &c_pub;
+
+  std::cout << "rs_display init" << std::endl;
 
   ros::spin();
 

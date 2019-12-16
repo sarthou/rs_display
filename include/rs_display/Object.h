@@ -7,6 +7,8 @@
 
 #include <visualization_msgs/Marker.h>
 
+#include "ontologenius/OntologyManipulator.h"
+
 #include "rs_display/PropertyData.h"
 #include "rs_display/IdManager.h"
 
@@ -34,6 +36,8 @@ public:
   void set3DPose(PropertyData data);
   void setScale(PropertyData data);
   void setTimestamp(float timestamp) { timestamp_ = timestamp; }
+
+  void upadteInOntology(OntologyManipulator* onto);
 
   void resetPose();
   float dist(float x, float y, float z);
@@ -65,6 +69,9 @@ private:
   bool split(const std::string &text, std::vector<std::string> &strs, const std::string& delim);
 
   float coordSimilarity(float s1, float s2, float threshold);
+
+  void addInOntology(OntologyManipulator* onto, const std::string& indiv, const std::string& prop, const std::string& on);
+  void addInOntology(OntologyManipulator* onto, const std::string& indiv, const std::string& prop, const std::vector<std::string>& ons);
 };
 
 } // namespace rs

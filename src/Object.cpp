@@ -172,6 +172,20 @@ void Object::setScale(PropertyData data)
   scale_[2] = std::stof(data["depth"].value());
 }
 
+void Object::upadteInOntology(OntologyManipulator* onto)
+{
+  if(!onto->individuals.exist(name_))
+    onto->feeder.addInheritage(name_, "Object");
+
+  addInOntology(onto, name_, "hasShape", shape_);
+  addInOntology(onto, name_, "hasSize", size_);
+
+  std::vector<std::string> colors;
+  for(auto& color : colors_)
+    colors.push_back(color.first);
+  addInOntology(onto, name_, "hasSize", colors);
+}
+
 void Object::resetPose()
 {
   pose_[0] = 0;
@@ -320,6 +334,58 @@ float Object::coordSimilarity(float s1, float s2, float threshold)
     return 0;
   else
     return 1 - (s_abs / threshold);
+}
+
+void Object::addInOntology(OntologyManipulator* onto, const std::string& indiv, const std::string& prop, const std::string& on)
+{
+  std::vector<std::string> onto_res;
+  onto_res = onto->individuals.getOn(indiv, prop);
+  if(onto_res.size())
+  {
+    bool exist = false;
+    for(auto r : onto_res)
+    {
+      if(r == on)
+        exist = true;
+      else
+        onto->feeder.removeProperty(indiv, prop, r);
+    }
+
+    if(!exist)
+      onto->feeder.addProperty(indiv, prop, on);
+  }
+  else
+    onto->feeder.addProperty(indiv, prop, on);
+}
+
+void Object::addInOntology(OntologyManipulator* onto, const std::string& indiv, const std::string& prop, const std::vector<std::string>& ons)
+{
+  std::vector<std::string> onto_res;
+  onto_res = onto->individuals.getOn(indiv, prop);
+  if(onto_res.size())
+  {
+    for(size_t i = 0; i < onto_res.size();)
+    {
+      if(std::find(ons.begin(), ons.end(), onto_res[i]) == ons.end())
+      {
+        onto->feeder.removeProperty(indiv, prop, onto_res[i]);
+        onto_res.erase(onto_res.begin() + i);
+      }
+      else
+        i++;
+    }
+
+    for(size_t i = 0; i < ons.size(); i++)
+    {
+      if(std::find(onto_res.begin(), onto_res.end(), ons[i]) == onto_res.end())
+        onto->feeder.addProperty(indiv, prop, ons[i]);
+    }
+  }
+  else
+  {
+    for(auto& on : ons)
+      onto->feeder.addProperty(indiv, prop, on);
+  }
 }
 
 } // namespace rs
