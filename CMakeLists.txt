@@ -33,10 +33,10 @@ catkin_package(
 ###########
 
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(display src/display.cpp)
+add_executable(display src/display.cpp src/Object.cpp src/DataReader.cpp)
 add_dependencies(display ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(display ${catkin_LIBRARIES})

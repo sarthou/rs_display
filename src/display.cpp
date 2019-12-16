@@ -1,255 +1,176 @@
 #include <iostream>
 #include <map>
-#include <experimental/optional>
+#include <mutex>
+
 #include "ros/ros.h"
 
 #include <robosherlock_msgs/RSObjectDescriptions.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <geometry_msgs/PointStamped.h>
+#include <std_msgs/String.h>
 
-class PropertyData
+#include "rs_display/PropertyData.h"
+#include "rs_display/Object.h"
+#include "rs_display/DataReader.h"
+
+rs::Object getObject(rs::PropertyData& obj)
 {
-public:
-  std::experimental::optional<std::string> data;
-  std::experimental::optional<std::map<std::string, PropertyData>> map_data;
+  rs::Object object;
 
-  PropertyData operator[](std::string name)
-  {
-    if(map_data)
-      return map_data.value()[name];
-    else
-      return PropertyData();
-  }
+  object.setTrackId(std::stoi(obj["rs.annotation.Tracking"]["trackingID"].value()));
 
-  std::string value()
-  {
-    if(data)
-      return data.value();
-    else
-      return "";
-  }
-};
+  object.setColor(obj["rs.annotation.SemanticColor"]["color"].value(),
+                  std::stof(obj["rs.annotation.SemanticColor"]["ratio"].value()));
 
-size_t getInBraquet(size_t begin, std::string& in_bracket, std::string& text, char left, char right)
-{
-  size_t bracket = begin;
+  object.setShape(obj["rs.annotation.Shape"]["shape"].value(),
+                  std::stof(obj["rs.annotation.Shape"]["confidence"].value()));
 
-  if(text[bracket] == left)
-  {
-    size_t first_bracket = bracket;
-    int cpt = 1;
-    while((cpt != 0) && (bracket+1 < text.length()))
-    {
-      ++bracket;
-      if(text[bracket] == left)
-        cpt++;
-      else if(text[bracket] == right)
-        cpt--;
+  object.setSize(obj["rs.annotation.SemanticSize"]["size"].value(),
+                 std::stof(obj["rs.annotation.SemanticSize"]["confidence"].value()));
 
-    }
+  object.set3DPose(obj["rs.annotation.PoseAnnotation"]["world"]["rs.tf.StampedPose"]);
+  object.setScale(obj["rs.annotation.Geometry"]["boundingBox"]["rs.pcl.BoundingBox3D"]);
 
-    in_bracket = text.substr(first_bracket+1, bracket-first_bracket-1);
+  object.setTimestamp(std::stof(obj["timestamp"].value()));
 
-    if(cpt == 0)
-      return bracket;
-    else
-      return std::string::npos;
-  }
-  else
-    return begin;
-}
-
-bool split(const std::string &text, std::vector<std::string> &strs, const std::string& delim)
-{
-  std::string tmp_text = text;
-  while(tmp_text.find(delim) != std::string::npos)
-  {
-    size_t pos = tmp_text.find(delim);
-    std::string part = tmp_text.substr(0, pos);
-    tmp_text = tmp_text.substr(pos + delim.size(), tmp_text.size() - pos - delim.size());
-    if(part != "")
-      strs.push_back(part);
-  }
-  strs.push_back(tmp_text);
-  if(strs.size() > 1)
-    return true;
-  else
-    return false;
-}
-
-std::string getProperty(std::string& str, size_t& pose)
-{
-  size_t pose_start = str.find("\"", pose) + 1;
-  size_t pose_end = str.find("\"", pose_start + 1);
-  std::string property = str.substr(pose_start, pose_end - pose_start);
-  pose = pose_end + 1;
-  return property;
-}
-
-std::string getData(std::string& str, size_t& pose)
-{
-  std::string data = "";
-  size_t after_dote_pose = str.find(":", pose) + 1;
-  if(str[after_dote_pose] == '\"')
-  {
-    after_dote_pose++;
-    size_t pose_end = str.find("\"", after_dote_pose);
-    if(pose_end != std::string::npos)
-    {
-      data = str.substr(after_dote_pose, pose_end - after_dote_pose);
-      pose = pose_end + 1;
-    }
-    else
-      pose = after_dote_pose + 2;
-  }
-  else if(str[after_dote_pose] == '[')
-  {
-    size_t pose_end = getInBraquet(after_dote_pose, data, str, '[', ']');
-    pose = pose_end + 1;
-  }
-  else if(str[after_dote_pose] == '{')
-  {
-    size_t pose_end = getInBraquet(after_dote_pose, data, str, '{', '}');
-    data = "{" + data + "}";
-    pose = pose_end + 1;
-  }
-  else
-  {
-    size_t pose_end = str.find(",", after_dote_pose + 1);
-    size_t pose_end_braq = str.find("}", after_dote_pose + 1);
-    if(pose_end_braq < pose_end)
-      pose_end = pose_end_braq;
-    data = str.substr(after_dote_pose, pose_end - after_dote_pose);
-    pose = pose_end;
-  }
-
-  pose = str.find(",", pose);
-  if(pose != std::string::npos)
-    pose++;
-
-  return data;
-}
-
-std::map<std::string, PropertyData> processObject(std::string& str)
-{
-  std::map<std::string, PropertyData> res;
-  str = str.substr(1, str.size()-2);
-  //
-  size_t pose = 0;
-  while(pose!= std::string::npos)
-  {
-    std::string property = getProperty(str, pose);
-    std::string data = getData(str, pose);
-    if(data[0] == '{')
-      res[property].map_data = processObject(data);
-    else
-      res[property].data = data;
-  }
-  return res;
-}
-
-void print(std::map<std::string, PropertyData>& obj, size_t tab = 0)
-{
-  for(auto prop : obj)
-  {
-    for(size_t i = 0; i < tab; i++)
-      std::cout << "\t";
-    std::cout << prop.first << " = ";
-    if(prop.second.data)
-      std::cout << prop.second.data.value() << std::endl;
-    else if(prop.second.map_data)
-    {
-      std::cout << std::endl;
-      print(prop.second.map_data.value(), tab+1);
-    }
-  }
-}
-
-std::vector<float> toVect(const std::string& str)
-{
-  std::vector<std::string> str_vect;
-  std::vector<float> flt_vect;
-  split(str, str_vect, ",");
-  for(auto it : str_vect)
-    flt_vect.push_back(std::stof(it));
-  return flt_vect;
-}
-
-std::vector<float> toColor(const std::string& str)
-{
-  if(str == "yellow")
-    return {1.0, 1.0, 0};
-  else if(str == "blue")
-    return {0, 0, 1.0};
-  else if(str == "black")
-    return {0, 0, 0};
-  else if(str == "white")
-    return {1.0, 1.0, 1.0};
-  else if(str == "red")
-    return {1.0, 0, 0};
-  else if(str == "green")
-    return {0, 1.0, 0};
-  else if(str == "cyan")
-    return {0, 1.0, 1.0};
-  else if(str == "magenta")
-    return {1.0, 0, 1.0};
-  else
-    return {0.5, 0.5, 0.5};
-}
-
-visualization_msgs::Marker getMarker(std::map<std::string, PropertyData>& obj)
-{
-  visualization_msgs::Marker marker;
-  marker.header.frame_id = obj["rs.annotation.PoseAnnotation"]["world"]["rs.tf.StampedPose"]["frame"].value();
-  marker.header.stamp = ros::Time(std::stof(obj["timestamp"].value()));
-  marker.ns = "rs";
-  marker.id = std::stoi(obj["rs.annotation.Tracking"]["trackingID"].value());
-  if(obj["rs.annotation.Shape"]["shape"].value() == "box")
-    marker.type = visualization_msgs::Marker::CUBE;
-  else
-    marker.type = visualization_msgs::Marker::CYLINDER;
-  marker.action = visualization_msgs::Marker::ADD;
-
-  auto pose = toVect(obj["rs.annotation.PoseAnnotation"]["world"]["rs.tf.StampedPose"]["translation"].value());
-  marker.pose.position.x = pose[0];
-  marker.pose.position.y = pose[1];
-  marker.pose.position.z = pose[2];
-
-  auto rot = toVect(obj["rs.annotation.PoseAnnotation"]["world"]["rs.tf.StampedPose"]["rotation"].value());
-  marker.pose.orientation.x = rot[0];
-  marker.pose.orientation.y = rot[1];
-  marker.pose.orientation.z = rot[2];
-  marker.pose.orientation.w = rot[3];
-
-  marker.scale.x = std::stof(obj["rs.annotation.Geometry"]["boundingBox"]["rs.pcl.BoundingBox3D"]["width"].value());
-  marker.scale.y = std::stof(obj["rs.annotation.Geometry"]["boundingBox"]["rs.pcl.BoundingBox3D"]["height"].value());
-  marker.scale.z = std::stof(obj["rs.annotation.Geometry"]["boundingBox"]["rs.pcl.BoundingBox3D"]["depth"].value());
-
-  auto color = toColor(obj["rs.annotation.SemanticColor"]["color"].value());
-  marker.color.r = color[0];
-  marker.color.g = color[1];
-  marker.color.b = color[2];
-  marker.color.a = 1.0;
-
-  marker.lifetime = ros::Duration(2);
-
-  return marker;
+  return std::move(object);
 }
 
 ros::Publisher* pub;
+ros::Publisher* click_pub;
+std::mutex mut_;
+std::vector<rs::Object> objects_;
+std::vector<rs::Object> objects_prev_;
+
+std::vector<rs::Object> merge(std::vector<rs::Object>& current, std::vector<rs::Object>& prev, int type)
+{
+  std::vector<rs::Object> res;
+
+  for(size_t i = 0; i < current.size();)
+  {
+    int prev_index = -1;
+    float max_similarity = 0;
+    for(size_t j = 0; j < prev.size(); j++)
+    {
+      float sim = 0;
+      if(type == 0)
+        sim = current[i].poseSimilarity(prev[j]);
+      else
+        sim = current[i].scaleSimilarity(prev[j]);
+
+      if(sim > max_similarity)
+      {
+        max_similarity = sim;
+        prev_index = j;
+      }
+    }
+
+    if(prev_index != -1)
+    {
+      std::cout << "match " << type << " " << current[i].getName() << " with " << prev[prev_index].getName() << " " << max_similarity << std::endl;
+      current[i].merge(prev[prev_index]);
+      res.push_back(std::move(current[i]));
+      prev.erase(prev.begin() + prev_index);
+      current.erase(current.begin() + i);
+    }
+    else
+      i++;
+  }
+
+  return std::move(res);
+}
 
 void Callback(const robosherlock_msgs::RSObjectDescriptions& msg)
 {
+  rs::DataReader reader;
+
   std::cout << msg.obj_descriptions.size() << std::endl;
-  std::vector<std::map<std::string, PropertyData>> objects;
+  std::vector<rs::PropertyData> datas;
   for(auto obj : msg.obj_descriptions)
-    objects.push_back(processObject(obj));
+    datas.push_back(reader.get(obj));
 
-  for(auto obj : objects)
-    print(obj);
+  /*for(auto obj : datas)
+    obj.print();*/
 
-  for(auto obj : objects)
-    pub->publish(getMarker(obj));
+  objects_prev_ = std::move(objects_);
+  std::vector<rs::Object> objects;
+  for(auto obj : datas)
+    objects.push_back(getObject(obj));
+
+  std::vector<rs::Object> objects_poses = merge(objects, objects_prev_, 0);
+  std::vector<rs::Object> objects_scales = merge(objects, objects_prev_, 1);
+
+  objects.insert(objects.end(), objects_poses.begin(), objects_poses.end());
+  objects.insert(objects.end(), objects_scales.begin(), objects_scales.end());
+
+  for(auto& obj : objects)
+  {
+    obj.setId();
+    pub->publish(obj.getMarker());
+    pub->publish(obj.getMarkerName());
+  }
+
+  mut_.lock();
+  objects_ = std::move(objects);
+  if(objects_prev_.size())
+  {
+    std::cout << objects_prev_.size() << " not found" << std::endl;
+    objects_.insert(objects_.end(), objects_prev_.begin(), objects_prev_.end());
+  }
+  mut_.unlock();
+}
+
+void clickCallback(const geometry_msgs::PointStamped& msg)
+{
+  std::string name;
+  float min_size = 100000;
+
+  mut_.lock();
+  for(auto& obj : objects_)
+  {
+    float dist = obj.dist(msg.point.x, msg.point.y, msg.point.z);
+    if(dist < min_size)
+    {
+      name = obj.getName();
+      min_size = dist;
+    }
+  }
+  mut_.unlock();
+
+  std_msgs::String res_msg;
+  res_msg.data = name;
+  click_pub->publish(res_msg);
+
+  std::cout << "click on " << name << std::endl;
+}
+
+void tranparentCallback(const std_msgs::String& msg)
+{
+  mut_.lock();
+  for(auto& obj : objects_)
+  {
+    if(msg.data == obj.getName())
+    {
+      obj.setOpacity(0.5);
+      break;
+    }
+  }
+  mut_.unlock();
+}
+
+void opaqueCallback(const std_msgs::String& msg)
+{
+  mut_.lock();
+  for(auto& obj : objects_)
+  {
+    if(msg.data == obj.getName())
+    {
+      obj.setOpacity(1.0);
+      break;
+    }
+  }
+  mut_.unlock();
 }
 
 int main(int argc, char *argv[])
@@ -258,8 +179,16 @@ int main(int argc, char *argv[])
   ros::NodeHandle n;
 
   ros::Subscriber sub = n.subscribe("RoboSherlock_gsarthou/result_advertiser", 1000, Callback);
+  ros::Subscriber click_sub = n.subscribe("/clicked_point", 1000, clickCallback);
+
+  ros::Subscriber transp_sub = n.subscribe("/set_transparent", 1000, tranparentCallback);
+  ros::Subscriber opaque_sub = n.subscribe("/set_opaque", 1000, opaqueCallback);
+
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
   pub = &marker_pub;
+
+  ros::Publisher c_pub = n.advertise<std_msgs::String>("clicked_object", 10);
+  click_pub = &c_pub;
 
   ros::spin();
 
