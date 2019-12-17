@@ -38,9 +38,12 @@ public:
   void setTimestamp(float timestamp) { timestamp_ = timestamp; }
 
   void upadteInOntology(OntologyManipulator* onto);
+  void removeFromOntology(OntologyManipulator* onto);
 
   void resetPose();
   float dist(float x, float y, float z);
+  bool smallerThan(float size);
+  bool olderThan(float duration);
 
   void merge(const Object& other);
   float poseSimilarity(const Object& other);
@@ -63,10 +66,12 @@ private:
   std::array<float, 3> scale_;
   std::string frame_;
   float timestamp_;
+  size_t nb_seen_;
 
   std::array<float, 4> toColor(const std::string& str);
   std::vector<float> toVect(const std::string& str);
   bool split(const std::string &text, std::vector<std::string> &strs, const std::string& delim);
+  float opposite(float prev, float current);
 
   float coordSimilarity(float s1, float s2, float threshold);
 

@@ -13,6 +13,7 @@ Object::Object()
   shape_confidence_ = 0;
   size_confidence_ = 0;
   opacity_ = 1.0;
+  nb_seen_ = 0;
 }
 
 void Object::setId()
@@ -177,6 +178,13 @@ void Object::setScale(PropertyData data)
 
 void Object::upadteInOntology(OntologyManipulator* onto)
 {
+  nb_seen_++;
+  if(nb_seen_ < 3)
+    return;
+  
+  if(onto == nullptr)
+    return;
+
   if(!onto->individuals.exist(name_))
     onto->feeder.addInheritage(name_, "Object");
 
@@ -187,6 +195,15 @@ void Object::upadteInOntology(OntologyManipulator* onto)
   for(auto& color : colors_)
     colors.push_back(color.first);
   addInOntology(onto, name_, "hasSize", colors);
+}
+
+void Object::removeFromOntology(OntologyManipulator* onto)
+{
+  nb_seen_ = 0;
+  if(onto == nullptr)
+    return;
+
+  onto->feeder.removeConcept(name_);
 }
 
 void Object::resetPose()
@@ -203,6 +220,22 @@ float Object::dist(float x, float y, float z)
           (z - pose_[2]) * (z - pose_[2]));
 }
 
+bool Object::smallerThan(float size)
+{
+  if((scale_[0] > size) || (scale_[1] > size) || (scale_[2] > size))
+    return false;
+  else
+    return true;
+}
+
+bool Object::olderThan(float duration)
+{
+  if((ros::Time::now() - ros::Duration(duration)).toSec() > timestamp_)
+    return true;
+  else
+    return false;
+}
+
 void Object::merge(const Object& other)
 {
   id_ = other.id_;
@@ -211,14 +244,14 @@ void Object::merge(const Object& other)
   pose_[1] = (pose_[1] + other.pose_[1]) / 2.0;
   pose_[2] = (pose_[2] + other.pose_[2]) / 2.0;
 
-  scale_[0] = (scale_[0] + other.scale_[0]) / 2.0;
-  scale_[1] = (scale_[1] + other.scale_[1]) / 2.0;
-  scale_[2] = (scale_[2] + other.scale_[2]) / 2.0;
+  scale_[0] = (scale_[0] + 2*other.scale_[0]) / 3.0;
+  scale_[1] = (scale_[1] + 2*other.scale_[1]) / 3.0;
+  scale_[2] = (scale_[2] + 2*other.scale_[2]) / 3.0;
 
-  orientation_[0] = (orientation_[0] + other.orientation_[0]) / 2.0;
-  orientation_[1] = (orientation_[1] + other.orientation_[1]) / 2.0;
-  orientation_[2] = (orientation_[2] + other.orientation_[2]) / 2.0;
-  orientation_[3] = (orientation_[3] + other.orientation_[3]) / 2.0;
+  orientation_[0] = other.orientation_[0];
+  orientation_[1] = other.orientation_[1];
+  orientation_[2] = other.orientation_[2];
+  orientation_[3] = other.orientation_[3];
 
   if(size_confidence_ < other.size_confidence_)
   {
@@ -246,6 +279,7 @@ void Object::merge(const Object& other)
   }
 
   opacity_ = other.opacity_;
+  nb_seen_ = other.nb_seen_;
   std::sort(colors_.begin(), colors_.end(), compareColors);
 }
 
@@ -328,6 +362,24 @@ bool Object::split(const std::string &text, std::vector<std::string> &strs, cons
     return true;
   else
     return false;
+}
+
+float Object::opposite(float prev, float current)
+{
+  if(prev < 0)
+  {
+    if((prev >= -(current + 0.1)) && (prev <= -(current - 0.1)))
+      return -current;
+    else
+      return current;
+  }
+  else
+  {
+    if((prev <= -(current + 0.1)) && (prev >= -(current - 0.1)))
+      return -current;
+    else
+      return current;
+  }
 }
 
 float Object::coordSimilarity(float s1, float s2, float threshold)

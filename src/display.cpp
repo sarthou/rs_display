@@ -45,7 +45,7 @@ rs::Object getObject(rs::PropertyData& obj)
 
 ros::Publisher* pub;
 ros::Publisher* click_pub;
-OntologyManipulator* onto_;
+OntologyManipulator* onto_ = nullptr;
 std::mutex mut_;
 std::vector<rs::Object> objects_;
 std::vector<rs::Object> objects_prev_;
@@ -57,12 +57,12 @@ std::vector<rs::Object> merge(std::vector<rs::Object>& current, std::vector<rs::
   for(size_t i = 0; i < current.size();)
   {
     int prev_index = -1;
-    float max_similarity = 0;
+    float max_similarity = 0.4;
     for(size_t j = 0; j < prev.size(); j++)
     {
       float sim = 0;
       if(type == 0)
-        sim = current[i].poseSimilarity(prev[j]);
+        sim = (2*current[i].poseSimilarity(prev[j]) + current[i].scaleSimilarity(prev[j])) / 3.0;
       else
         sim = current[i].scaleSimilarity(prev[j]);
 
@@ -103,7 +103,11 @@ void Callback(const robosherlock_msgs::RSObjectDescriptions& msg)
   objects_prev_ = std::move(objects_);
   std::vector<rs::Object> objects;
   for(auto obj : datas)
-    objects.push_back(getObject(obj));
+  {
+    auto tmp = getObject(obj);
+    if(tmp.smallerThan(0.5))
+      objects.push_back(tmp);
+  }
 
   std::vector<rs::Object> objects_poses = merge(objects, objects_prev_, 0);
   std::vector<rs::Object> objects_scales = merge(objects, objects_prev_, 1);
@@ -114,7 +118,7 @@ void Callback(const robosherlock_msgs::RSObjectDescriptions& msg)
   for(auto& obj : objects)
   {
     obj.setId();
-    //obj.upadteInOntology(onto_);
+    obj.upadteInOntology(onto_);
     pub->publish(obj.getMarker());
     pub->publish(obj.getMarkerName());
   }
@@ -124,6 +128,11 @@ void Callback(const robosherlock_msgs::RSObjectDescriptions& msg)
   if(objects_prev_.size())
   {
     std::cout << objects_prev_.size() << " not found" << std::endl;
+    for(size_t i = 0; i < objects_prev_.size(); i++)
+    {
+      if(objects_prev_[i].olderThan(2.0))
+        objects_prev_[i].removeFromOntology(onto_);
+    }
     objects_.insert(objects_.end(), objects_prev_.begin(), objects_prev_.end());
   }
   mut_.unlock();
