@@ -16,7 +16,7 @@ public:
   PropertyData get(std::string& str);
 
 private:
-  std::map<std::string, rs::PropertyData> processObject(std::string& str);
+  std::map<std::string, std::vector<rs::PropertyData>> processObject(std::string& str);
 
   size_t getInBraquet(size_t begin, std::string& in_bracket, std::string& text, char left, char right);
   bool split(const std::string &text, std::vector<std::string> &strs, const std::string& delim);

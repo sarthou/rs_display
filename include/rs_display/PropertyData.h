@@ -13,14 +13,36 @@ class PropertyData
 {
 public:
   std::experimental::optional<std::string> data;
-  std::experimental::optional<std::map<std::string, PropertyData>> map_data;
+  std::experimental::optional<std::map<std::string, std::vector<PropertyData>>> map_data;
 
-  PropertyData operator[](std::string name)
+  PropertyData operator[](const std::string& name)
   {
     if(map_data)
-      return map_data.value()[name];
+      if(map_data.value()[name].size())
+        return map_data.value()[name][0];
+      else
+        return PropertyData();
     else
       return PropertyData();
+  }
+
+  PropertyData at(const std::string& name, size_t index)
+  {
+    if(map_data)
+      if(index < map_data.value()[name].size())
+        return map_data.value()[name][index];
+      else
+        return PropertyData();
+    else
+      return PropertyData();
+  }
+
+  size_t size(const std::string& name)
+  {
+    if(map_data)
+      return map_data.value()[name].size();
+    else
+      return 0;
   }
 
   std::string value()
@@ -39,11 +61,14 @@ public:
     {
       for(auto d : map_data.value())
       {
-        std::cout << std::endl;
-        for(size_t i = 0; i < tab; i++)
-          std::cout << "\t";
-        std::cout << d.first << " = ";
-        d.second.print(tab+1);
+        for(auto& second : d.second)
+        {
+          std::cout << std::endl;
+          for(size_t i = 0; i < tab; i++)
+            std::cout << "\t";
+          std::cout << d.first << " = ";
+          second.print(tab+1);
+        }
       }
     }
   }

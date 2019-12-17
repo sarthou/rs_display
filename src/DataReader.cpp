@@ -12,21 +12,37 @@ PropertyData DataReader::get(std::string& str)
   return res;
 }
 
-std::map<std::string, rs::PropertyData> DataReader::processObject(std::string& str)
+std::map<std::string, std::vector<rs::PropertyData>> DataReader::processObject(std::string& str)
 {
-  std::map<std::string, rs::PropertyData> res;
-  str = str.substr(1, str.size()-2);
-  //
-  size_t pose = 0;
-  while(pose!= std::string::npos)
+  std::map<std::string, std::vector<rs::PropertyData>> res;
+  std::vector<std::string> strs;
+  size_t end_pose = 0;
+  do
   {
-    std::string property = getProperty(str, pose);
-    std::string data = getData(str, pose);
-    if(data[0] == '{')
-      res[property].map_data = processObject(data);
-    else
-      res[property].data = data;
+    std::string local_str;
+    end_pose = getInBraquet(end_pose, local_str, str, '{', '}');
+    if(local_str != "")
+      strs.push_back(local_str);
+    end_pose++;
   }
+  while(end_pose != str.size());
+
+  for(auto& s : strs)
+  {
+    size_t pose = 0;
+    while(pose!= std::string::npos)
+    {
+      std::string property = getProperty(s, pose);
+      std::string data = getData(s, pose);
+      rs::PropertyData sub_res;
+      if(data[0] == '{')
+        sub_res.map_data = processObject(data);
+      else
+        sub_res.data = data;
+      res[property].push_back(sub_res);
+    }
+  }
+
   return res;
 }
 

@@ -133,6 +133,9 @@ void Object::setColor(const std::string& color, float ratio)
 
 void Object::setShape(const std::string& shape, float confidence)
 {
+  if(shape == "flat")
+    return;
+
   if(confidence > shape_confidence_)
   {
     shape_ = shape;

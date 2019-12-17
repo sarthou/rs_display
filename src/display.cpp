@@ -20,11 +20,17 @@ rs::Object getObject(rs::PropertyData& obj)
 
   object.setTrackId(std::stoi(obj["rs.annotation.Tracking"]["trackingID"].value()));
 
-  object.setColor(obj["rs.annotation.SemanticColor"]["color"].value(),
-                  std::stof(obj["rs.annotation.SemanticColor"]["ratio"].value()));
+  for(size_t i = 0; i < obj["rs.annotation.SemanticColor"].size("color"); i++)
+  {
+    object.setColor(obj["rs.annotation.SemanticColor"].at("color",i).value(),
+                    std::stof(obj["rs.annotation.SemanticColor"].at("ratio", i).value()));
+  }
 
-  object.setShape(obj["rs.annotation.Shape"]["shape"].value(),
-                  std::stof(obj["rs.annotation.Shape"]["confidence"].value()));
+  for(size_t i = 0; i < obj["rs.annotation.Shape"].size("shape"); i++)
+  {
+    object.setShape(obj["rs.annotation.Shape"].at("shape",i).value(),
+                    std::stof(obj["rs.annotation.Shape"].at("confidence",i).value()));
+  }
 
   object.setSize(obj["rs.annotation.SemanticSize"]["size"].value(),
                  std::stof(obj["rs.annotation.SemanticSize"]["confidence"].value()));
@@ -108,7 +114,7 @@ void Callback(const robosherlock_msgs::RSObjectDescriptions& msg)
   for(auto& obj : objects)
   {
     obj.setId();
-    obj.upadteInOntology(onto_);
+    //obj.upadteInOntology(onto_);
     pub->publish(obj.getMarker());
     pub->publish(obj.getMarkerName());
   }
@@ -180,8 +186,8 @@ int main(int argc, char *argv[])
   ros::init(argc, argv, "rs_display");
   ros::NodeHandle n;
 
-  OntologyManipulator onto(&n);
-  onto_ = &onto;
+  /*OntologyManipulator onto(&n);
+  onto_ = &onto;*/
 
   ros::Subscriber sub = n.subscribe("RoboSherlock_gsarthou/result_advertiser", 1000, Callback);
   ros::Subscriber click_sub = n.subscribe("/clicked_point", 1000, clickCallback);
