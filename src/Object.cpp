@@ -194,7 +194,7 @@ void Object::upadteInOntology(OntologyManipulator* onto)
   std::vector<std::string> colors;
   for(auto& color : colors_)
     colors.push_back(color.first);
-  addInOntology(onto, name_, "hasSize", colors);
+  addInOntology(onto, name_, "hasColor", colors);
 }
 
 void Object::removeFromOntology(OntologyManipulator* onto)
