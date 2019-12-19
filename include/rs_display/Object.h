@@ -7,6 +7,7 @@
 
 #include <visualization_msgs/Marker.h>
 
+#include "ontologenius/OntologiesManipulator.h"
 #include "ontologenius/OntologyManipulator.h"
 
 #include "rs_display/PropertyData.h"

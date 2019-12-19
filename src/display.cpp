@@ -195,8 +195,9 @@ int main(int argc, char *argv[])
   ros::init(argc, argv, "rs_display");
   ros::NodeHandle n;
 
-  /*OntologyManipulator onto(&n);
-  onto_ = &onto;*/
+  OntologiesManipulator ontos(&n);
+  ontos.add("robot");
+  onto_ = ontos.get("robot");
 
   ros::Subscriber sub = n.subscribe("RoboSherlock_gsarthou/result_advertiser", 1000, Callback);
   ros::Subscriber click_sub = n.subscribe("/clicked_point", 1000, clickCallback);
