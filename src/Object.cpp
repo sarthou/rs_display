@@ -192,8 +192,11 @@ void Object::upadteInOntology(OntologyManipulator* onto)
   addInOntology(onto, name_, "hasSize", size_);
 
   std::vector<std::string> colors;
-  for(auto& color : colors_)
-    colors.push_back(color.first);
+  for(auto& color : colors_){
+    if (color.second >= 0.3){  
+      colors.push_back(color.first);
+    }
+  }
   addInOntology(onto, name_, "hasColor", colors);
 }
 
