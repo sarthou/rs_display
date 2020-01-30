@@ -174,6 +174,15 @@ void Object::setScale(PropertyData data)
   scale_[0] = std::stof(data["width"].value());
   scale_[1] = std::stof(data["height"].value());
   scale_[2] = std::stof(data["depth"].value());
+
+  if(std::abs(scale_[0] - scale_[1]) > scale_[0]*0.1)
+  {
+    if(shape_ != "box")
+    {
+      shape_ = "box";
+      shape_confidence_ = 0.5;
+    }
+  }
 }
 
 void Object::upadteInOntology(OntologyManipulator* onto)
@@ -181,7 +190,7 @@ void Object::upadteInOntology(OntologyManipulator* onto)
   nb_seen_++;
   if(nb_seen_ < 3)
     return;
-  
+
   if(onto == nullptr)
     return;
 
