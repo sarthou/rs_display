@@ -196,8 +196,13 @@ int main(int argc, char *argv[])
   ros::NodeHandle n;
 
   OntologiesManipulator ontos(&n);
+  ontos.waitInit(100);
   ontos.add("robot");
   onto_ = ontos.get("robot");
+  if(onto_ != nullptr)
+   onto_->close();
+  else
+   std::cout << "no ontology created" << std::endl;
 
   ros::Subscriber sub = n.subscribe("RoboSherlock_gsarthou/result_advertiser", 1000, Callback);
   ros::Subscriber click_sub = n.subscribe("/clicked_point", 1000, clickCallback);

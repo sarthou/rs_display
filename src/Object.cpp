@@ -175,7 +175,7 @@ void Object::setScale(PropertyData data)
   scale_[1] = std::stof(data["height"].value());
   scale_[2] = std::stof(data["depth"].value());
 
-  if(std::abs(scale_[0] - scale_[1]) > scale_[0]*0.1)
+  if(std::abs(scale_[0] - scale_[1]) > scale_[0]*0.25)
   {
     if(shape_ != "box")
     {
@@ -202,7 +202,7 @@ void Object::upadteInOntology(OntologyManipulator* onto)
 
   std::vector<std::string> colors;
   for(auto& color : colors_){
-    if (color.second >= 0.3){  
+    if (color.second >= 0.3){
       colors.push_back(color.first);
     }
   }
